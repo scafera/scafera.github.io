@@ -1,0 +1,1306 @@
+# Scafera — full reference
+
+> A predictable, enforceable PHP framework designed so humans and AI agents can build apps in it without breaking its rules. Scafera wraps Symfony — the kernel, entry points, and bundle discovery are owned by the framework. User code contains only business logic. Rules are enforced by the system (validators, compiler passes, `scafera validate`), not suggested by documentation.
+
+This single file contains the full Scafera reference. It is intended for ingestion by AI agents that need complete context in one fetch. The canonical source is https://scafera.github.io — pages linked in https://scafera.github.io/llms.txt.
+
+---
+
+# Getting started
+
+Scafera is installed via Composer. The fastest way to start is the `scafera/layered-web` project template.
+
+## Requirements
+
+- PHP 8.4+
+- Composer 2
+- A database engine (MySQL / MariaDB / PostgreSQL / SQLite) if using `scafera/database`
+
+## Create a project
+
+```bash
+composer create-project scafera/layered-web my-app
+cd my-app
+```
+
+This bootstraps: `composer.json`, `public/index.php`, `bin/scafera`, `config/config.yaml`, `Dockerfile` + `docker-compose.yml`, and `AGENTS.md`.
+
+## With Docker
+
+```bash
+docker compose up -d --build
+docker compose exec php composer install
+docker compose exec php vendor/bin/scafera validate
+docker compose exec php vendor/bin/phpunit -c tests/phpunit.dist.xml
+```
+
+## First controller
+
+`src/Controller/Hello.php`:
+
+```php
+<?php
+declare(strict_types=1);
+
+namespace App\Controller;
+
+use Scafera\Kernel\Http\JsonResponse;
+use Scafera\Kernel\Http\Route;
+
+#[Route('/hello', methods: 'GET')]
+final class Hello
+{
+    public function __invoke(): JsonResponse
+    {
+        return new JsonResponse(['message' => 'Hello, Scafera']);
+    }
+}
+```
+
+Controllers must be `final`, have a single `__invoke()` method, use attribute routing, and have no `Controller` suffix.
+
+## Matching test
+
+`tests/Controller/HelloTest.php`:
+
+```php
+<?php
+declare(strict_types=1);
+
+namespace App\Tests\Controller;
+
+use Scafera\Kernel\Test\WebTestCase;
+
+final class HelloTest extends WebTestCase
+{
+    public function testReturnsGreeting(): void
+    {
+        $response = $this->get('/hello');
+        $response->assertOk();
+        $response->assertJsonContains(['message' => 'Hello, Scafera']);
+    }
+}
+```
+
+Every controller and command must have a matching test. Missing tests fail `scafera validate`.
+
+## Configuration
+
+All project configuration lives in `config/config.yaml`:
+
+```yaml
+env:
+    APP_SECRET: 's3cret-change-in-production'
+    APP_DEBUG: '1'
+    DATABASE_URL: 'mysql://user:pass@db:3306/app'
+parameters:
+    app.items_per_page: 25
+framework:
+    default_locale: en
+```
+
+Real secrets go in `config/config.local.yaml` (gitignored). OS environment variables always win.
+
+Do not create `.env` files, `config/packages/`, or `config/bundles.php` — Scafera does not scan them.
+
+## Generators (layered)
+
+```bash
+vendor/bin/scafera make:controller Order/Create
+vendor/bin/scafera make:service OrderService
+vendor/bin/scafera make:command SendWelcome
+```
+
+---
+
+# Conventions
+
+Rules enforced by validators and compiler passes. `scafera validate` surfaces violations as build failures.
+
+## Hard rules
+
+- `declare(strict_types=1);` in every PHP file
+- Never create: `src/Kernel.php`, `public/index.php`, `bin/console`, `config/packages/`, `config/bundles.php`, `.env` files
+- Never create middleware, event listeners, subscribers, or use `#[AsEventListener]` in userland
+- Never import framework engines (`Symfony\…`, `Doctrine\…`, `Twig\…`) in userland
+- Use constructor injection — no service locators, no manual wiring
+- Controllers are stateless
+- Adding a controller or command without a matching test is a violation
+
+## Boundary enforcement
+
+| Package | Blocked in userland | Use instead |
+|---------|--------------------|-------------|
+| `scafera/database` | `Doctrine\*` (except in `src/Repository/`) | `EntityStore`, `Transaction`, `Mapping\Field\*` |
+| `scafera/frontend` | `Twig\*` | `ViewInterface::render()` |
+| `scafera/auth` | `Symfony\…\Security\*`, `…\Session\*`, `…\PasswordHasher\*` | `Authenticator`, `Session`, `Password`, `#[Protect]` |
+| `scafera/form` | `Symfony\…\Form\*`, `…\Validator\*` (except in `src/Form/`) | DTO + `Rule\*` + `FormHandler` |
+| `scafera/file` | `Symfony\…\File\*`, `…\Filesystem\*` | `UploadExtractor`, `FileStorage`, `FileResponse` |
+| `scafera/translate` | `Symfony\…\Translation\*` | `Translator`, `LocaleManager` |
+| `scafera/asset` | `Symfony\…\AssetMapper\*` | `asset()` in Twig |
+| `scafera/integration` | `Symfony\…\HttpClient\*`, `curl_*`, HTTP in `file_get_contents`/`fopen` | Gateway + `HttpClient` |
+
+## Controlled zones
+
+- `src/Repository/` — direct Doctrine usage allowed
+- `src/Form/` — Symfony Form types allowed
+
+Only controllers may import from `App\Form`. Repositories are called by services — never injected into controllers.
+
+## Paths
+
+Fixed framework-wide. Do not invent alternatives.
+
+| Path | Owner |
+|------|-------|
+| `public/`, `config/`, `var/cache/`, `var/log/` | kernel |
+| `support/migrations/` (`App\Migrations`) | database |
+| `support/seeds/` (`App\Seed`) | database |
+| `support/scaffold/` | scaffold |
+
+Architecture packages own `src/` and `resources/`. Use `vendor/bin/scafera info:paths` at runtime to discover paths.
+
+## Agent discipline
+
+- Only change what the task requires — no refactoring or "improvements" in untouched code
+- No comments, docstrings, or type annotations on code you didn't change
+- Minimal diffs — every change must have a clear functional purpose
+- Use only the directories defined by the architecture package
+- Ask before adding silently
+- Run `scafera validate` before declaring work done
+
+## Core `scafera` commands
+
+```bash
+vendor/bin/scafera validate              # run all validators
+vendor/bin/scafera info:paths            # show all registered paths
+vendor/bin/scafera info:paths storage    # show a single path
+vendor/bin/scafera about                 # framework + env info
+```
+
+---
+
+# scafera/kernel
+
+The boot core. Discovers bundles, loads an architecture package, enforces structural boundaries, hands off to Symfony. User projects never define a `Kernel` class.
+
+Non-functional without an architecture package (e.g. `scafera/layered`).
+
+## Bundle discovery
+
+Automatic from Composer's `installed.json`. Any installed package declaring `"type": "symfony-bundle"` is registered. No `config/bundles.php`.
+
+## Two-phase config parsing
+
+1. **Bootstrap phase** — reads `env:` before kernel boots. Sets `$_ENV`/`$_SERVER`. OS env vars take precedence.
+2. **Container build phase** — re-parses with Symfony YAML. `parameters:` enter the container. Remaining keys pass to bundle extensions.
+
+`APP_SECRET` has no default — set via `config/config.yaml` (`env:`) or OS env var. `Bootstrap` throws `RuntimeException` if missing.
+
+## HTTP types
+
+```
+Scafera\Kernel\Http\Request
+Scafera\Kernel\Http\Response
+Scafera\Kernel\Http\JsonResponse
+Scafera\Kernel\Http\RedirectResponse
+Scafera\Kernel\Http\Route
+Scafera\Kernel\Http\ParameterBag
+Scafera\Kernel\Http\HeaderBag
+```
+
+### Request
+
+Properties: `$request->query` (ParameterBag), `$request->request` (ParameterBag), `$request->headers` (HeaderBag).
+
+Methods: `getMethod()`, `isMethod()`, `getPath()`, `getUri()`, `getContent()`, `json()`, `routeParam(key, default)`, `routeParams()`.
+
+### Response types
+
+```php
+new Response(string $content = '', int $status = 200, array $headers = []);
+new JsonResponse(mixed $data = null, int $status = 200, array $headers = []);
+new RedirectResponse(string $url, int $status = 302, array $headers = []);
+```
+
+### #[Route]
+
+```php
+#[Route(
+    path: '/path/{param}',
+    methods: 'GET',
+    name: 'custom_name',
+    requirements: ['param' => '\d+'],
+    defaults: ['param' => '1'],
+)]
+```
+
+Class-level `#[Route]` sets a prefix. Class-level only (no method-level) maps to `__invoke`.
+
+### ParameterBag
+
+`get(key, default)`, `has(key)`, `all()`, `getInt`, `getString`, `getBoolean`.
+
+### HeaderBag
+
+`get(key, default)` (case-insensitive), `has(key)`, `all()`.
+
+## Console
+
+```
+Scafera\Kernel\Console\Command             # extend, implement handle()
+Scafera\Kernel\Console\Input
+Scafera\Kernel\Console\Output              # success, error, warning, info, table, note
+Scafera\Kernel\Console\Attribute\AsCommand # #[AsCommand('name', description: '...')]
+```
+
+Command provides `addArg`, `addFlag`, `addOpt`. `handle(Input, Output): int` returns `self::SUCCESS` or `self::FAILURE`.
+
+## Testing
+
+```
+Scafera\Kernel\Test\WebTestCase     # get, post, postJson, put, putJson, delete, patch, patchJson
+Scafera\Kernel\Test\TestResponse    # assertOk, assertStatus, assertSuccessful, assertRedirect,
+                                    # assertHeader, assertHeaderExists, assertJsonContains,
+                                    # assertJsonPath, assertContentContains, getContent, getStatusCode, json
+Scafera\Kernel\Test\CommandTestCase # runCommand('name', ['arg' => 'value'])
+Scafera\Kernel\Test\CommandResult   # assertSuccessful, assertFailed, assertExitCode,
+                                    # assertOutputContains, assertOutputNotContains, getOutput, getExitCode
+```
+
+## Dependency injection
+
+```php
+use Scafera\Kernel\Attribute\Config;
+
+final class SomeService
+{
+    public function __construct(
+        #[Config('app.items_per_page')] private readonly int $perPage,
+        #[Config('env.DATABASE_URL')] private readonly string $dbUrl,
+    ) {}
+}
+```
+
+`#[Config('app.name')]` — container parameter. `#[Config('env.NAME')]` — environment variable.
+
+## Contracts
+
+- `ArchitecturePackageInterface`
+- `ValidatorInterface` (hard — affects exit code)
+- `AdvisorInterface` (soft — never affects exit code)
+- `GeneratorInterface` (for `make:*`)
+- `ViewInterface` (implemented by `scafera/frontend`)
+- `PathProviderInterface`
+
+DI tags: `scafera.validator`, `scafera.advisor`, `scafera.path_provider`.
+
+---
+
+# scafera/layered
+
+Architecture package. Defines and enforces a strict layered approach.
+
+## Layers
+
+| Layer | Purpose |
+|-------|---------|
+| `Controller/` | Single-action invokables — delegate to services |
+| `Service/` | All business logic |
+| `Repository/` | Data access (Doctrine allowed) |
+| `Integration/` | Third-party wrappers |
+| `Entity/` | Domain data |
+| `Command/` | CLI entry points |
+
+Optional: `Form/` (Symfony Form types, controlled zone).
+
+## Dependency flow
+
+```
+Controller → Service → Repository   → Entity
+Command  ↗         ↘ Integration ↗
+```
+
+Repository and Integration are siblings — both called by Service, neither depends on the other.
+
+## Project structure
+
+```
+src/Controller/, src/Command/, src/Service/, src/Repository/, src/Integration/, src/Form/, src/Entity/
+tests/Controller/, tests/Command/, tests/Service/ (matching paths)
+resources/templates/
+support/migrations/, support/seeds/, support/translations/
+config/config.yaml, config/config.local.yaml (gitignored)
+var/cache/, var/log/, var/uploads/{public,private}
+```
+
+## Controllers — rules
+
+- `final`, single `__invoke()`, no `Controller` suffix
+- Action-oriented names in domain subfolders: `Controller/Order/Show.php`
+- Single-word names at root; multi-word in subfolders
+- Matching test at same relative path
+
+### Template
+
+```php
+<?php
+declare(strict_types=1);
+
+namespace App\Controller\Order;
+
+use Scafera\Kernel\Http\JsonResponse;
+use Scafera\Kernel\Http\Request;
+use Scafera\Kernel\Http\Route;
+
+#[Route('/orders/{id}', methods: 'GET', requirements: ['id' => '\d+'])]
+final class Show
+{
+    public function __construct(
+        private readonly OrderService $service,
+    ) {}
+
+    public function __invoke(Request $request): JsonResponse
+    {
+        return new JsonResponse($this->service->find((int) $request->routeParam('id')));
+    }
+}
+```
+
+## Commands — rules
+
+- `final`, extends `Scafera\Kernel\Console\Command`, `#[AsCommand('name', description: '...')]`
+- `handle(Input, Output): int` returns `self::SUCCESS` or `self::FAILURE`
+- Matching test at same relative path
+
+```php
+#[AsCommand('app:send-welcome', description: 'Send the welcome email')]
+final class SendWelcome extends Command
+{
+    protected function handle(Input $input, Output $output): int
+    {
+        $output->success('Sent.');
+        return self::SUCCESS;
+    }
+}
+```
+
+## Services — rules
+
+- `final`, constructor injection only
+- No HTTP or console concerns
+- No framework imports
+
+## Repositories — rules
+
+- `final`, only zone where direct Doctrine usage is allowed
+- Called by services — never injected into controllers or commands
+
+## Integrations — rules
+
+- `final`, grouped by vendor (e.g. `Integration/Stripe/`)
+- Class name must not repeat vendor prefix
+- May depend on Entity and primitives only
+- Must not expose SDK types to callers
+
+For HTTP-based third parties, use `scafera/integration` Gateway pattern.
+
+## Entities — rules
+
+- Use `Scafera\Database\Mapping\Field\*` attributes
+- Use `Auditable` trait for `createdAt`/`updatedAt`
+- No `Doctrine\*` imports
+
+## Validators (12)
+
+Tests directory, Controller location, Controller naming, Single-action controllers, Controller test parity, Command test parity, Service location, Service final, Namespace conventions, Layer dependencies, Integration naming, No implicit execution.
+
+## Advisors
+
+Test sync — warns when a controller/command is modified in git but its test is not.
+
+## Generators
+
+```bash
+vendor/bin/scafera make:controller Order/Create
+vendor/bin/scafera make:service OrderService
+vendor/bin/scafera make:command SendWelcome
+```
+
+---
+
+# scafera/database
+
+Persistence. Wraps Doctrine internally. Needs `DATABASE_URL` in `env:` or OS env.
+
+## EntityStore
+
+```php
+use Scafera\Database\EntityStore;
+
+final class OrderRepository
+{
+    public function __construct(private readonly EntityStore $store) {}
+
+    public function find(int $id): ?Order
+    {
+        return $this->store->find(Order::class, $id);
+    }
+
+    public function save(Order $order): void { $this->store->persist($order); }
+    public function remove(Order $order): void { $this->store->remove($order); }
+}
+```
+
+## Transaction
+
+All writes go through `Transaction::run()`. Never call `flush()` manually. Unflushed writes throw at end of request.
+
+```php
+use Scafera\Database\Transaction;
+
+return $this->tx->run(function () use ($order): Order {
+    $this->store->persist($order);
+    return $order;
+});
+```
+
+Nested calls are safe — inner calls use savepoints. Only the outermost level flushes.
+
+## Entities
+
+```php
+use Scafera\Database\Mapping\Auditable;
+use Scafera\Database\Mapping\Field;
+
+final class Order
+{
+    use Auditable;
+
+    #[Field\Id]
+    private ?int $id = null;
+
+    public function __construct(
+        #[Field\Varchar] private string $customerName,
+        #[Field\Decimal(precision: 10, scale: 2)] private string $total,
+    ) {
+        $this->createdAt = new \DateTimeImmutable();
+    }
+}
+```
+
+### Field attributes
+
+`Id`, `Uuid`, `Varchar`, `VarcharShort`, `Text`, `Integer`, `IntegerBig`, `IntegerBigPositive`, `Boolean`, `Decimal`, `Money`, `Percentage`, `Date`, `DateTime`, `Time`, `UnixTimestamp`, `Json`, `Column` (escape hatch).
+
+### Auditable
+
+Provides `$createdAt` and `$updatedAt`. Initialize `$this->createdAt = new \DateTimeImmutable()` in the constructor (warned by `AuditableInitValidator` if missing).
+
+### Table names
+
+Derived as singular snake_case: `Order` → `order`, `BlogPost` → `blog_post`. Override with `#[Table(name: 'categories')]`.
+
+## Boundary rules
+
+| Zone | Doctrine imports |
+|------|------------------|
+| `src/Entity/` | Forbidden |
+| `src/Repository/` | Allowed (QueryBuilder, DQL, DBAL) |
+| Everywhere else | Forbidden (except `Doctrine\Common\Collections`) |
+
+Enforced by `DoctrineBoundaryPass` at build time.
+
+## Migrations
+
+Live in `support/migrations/`, extend `Scafera\Database\Migration`. Use Schema API — no raw SQL.
+
+```php
+use Scafera\Database\Migration;
+use Scafera\Database\Schema\Schema;
+use Scafera\Database\Schema\Table;
+
+final class Version20260403080718 extends Migration
+{
+    public function up(Schema $schema): void
+    {
+        $schema->create('page', function (Table $table) {
+            $table->id();
+            $table->string('title', 255);
+            $table->text('content');
+            $table->boolean('published');
+            $table->timestamp('createdAt');
+        });
+    }
+
+    public function down(Schema $schema): void
+    {
+        $schema->drop('page');
+    }
+}
+```
+
+### Column types
+
+`id()`, `string(name, length)`, `text(name)`, `integer(name)`, `bigInteger(name)`, `smallInteger(name)`, `boolean(name)`, `timestamp(name)`, `date(name)`, `decimal(name, precision, scale)`, `json(name)`.
+
+### Modifiers
+
+```php
+$table->string('bio')->nullable();
+$table->boolean('active')->default(true);
+```
+
+### Schema operations
+
+```php
+$schema->create('users', function (Table $table) { /* ... */ });
+$schema->drop('users');                // destructive
+$schema->modify('users', function (Table $table) {
+    $table->string('email', 255);
+    $table->dropColumn('legacy_field');  // destructive
+});
+```
+
+### Destructive detection
+
+Destructive: `DropTable`, `DropColumn`. Safe: `CreateTable`, `AddColumn`.
+
+- Dev: warns, proceeds
+- Prod: blocks unless `--force`
+
+## Seeders
+
+Live in `support/seeds/`. Class names end with `Seed`. Implement `SeederInterface`.
+
+```php
+namespace App\Seed;
+
+use Scafera\Database\EntityStore;
+use Scafera\Database\SeederInterface;
+use Scafera\Database\Transaction;
+
+final class PageSeed implements SeederInterface
+{
+    public function __construct(
+        private readonly EntityStore $store,
+        private readonly Transaction $tx,
+    ) {}
+
+    public function run(): void
+    {
+        $this->tx->run(function (): void {
+            // ... persist entities
+        });
+    }
+}
+```
+
+## CLI
+
+```
+db:migrate [--dry-run]
+db:migrate:create
+db:migrate:diff
+db:migrate:drop <table>
+db:migrate:status
+db:migrate:rollback
+db:reset --force
+db:seed
+db:schema:list
+db:schema:show <table>
+db:schema:diff
+```
+
+---
+
+# scafera/frontend
+
+Template rendering. Wraps Twig. Your code imports only `Scafera\Kernel\Contract\ViewInterface`.
+
+## Contract
+
+```php
+namespace Scafera\Kernel\Contract;
+
+interface ViewInterface
+{
+    public function render(string $template, array $context = []): string;
+}
+```
+
+Returns a string, not a Response. The controller wraps it.
+
+## Usage
+
+```php
+use Scafera\Kernel\Contract\ViewInterface;
+use Scafera\Kernel\Http\Response;
+use Scafera\Kernel\Http\Route;
+
+#[Route('/orders/{id}', methods: 'GET')]
+final class Show
+{
+    public function __construct(private readonly ViewInterface $view) {}
+
+    public function __invoke(Request $request): Response
+    {
+        return new Response($this->view->render('order/show.html.twig', [
+            'orderId' => $request->routeParam('id'),
+        ]));
+    }
+}
+```
+
+## Templates
+
+Live in `resources/templates/`. Use Twig's native `{% extends %}`, `{% block %}`, `{% include %}` — no custom helpers.
+
+## Boundary
+
+No `Twig\*` imports in userland. Enforced by `TwigLeakageValidator` at build time.
+
+## Twig functions from other packages
+
+- `scafera/asset` → `asset('path')`
+- `scafera/translate` → `t('KEY', {param: value})`, `locale_direction()`
+
+---
+
+# scafera/auth
+
+Authentication and access control. Wraps `symfony/http-foundation` Session + `symfony/password-hasher`.
+
+## Design decisions
+
+- User existence is the source of truth — `isAuthenticated()` verifies user exists in provider
+- Session ID regenerated on both login and logout
+- Explicit guard execution — declared via `#[Protect]`, not firewall rules
+
+## Session
+
+```php
+use Scafera\Auth\Session;
+
+$session->set('key', 'value');
+$session->get('key');                 // 'value'
+$session->has('key');
+$session->remove('key');
+$session->flash('notice', 'Saved!');
+$session->getFlash('notice');         // ['Saved!']
+```
+
+Safe in CLI — returns defaults when no request exists.
+
+## Authenticator
+
+```php
+use Scafera\Auth\Authenticator;
+use Scafera\Auth\Password;
+
+$user = $userProvider->findByIdentifier($email);
+if ($user && $password->verify($user->getPassword(), $plainPassword)) {
+    $authenticator->login($user);
+}
+
+$authenticator->isAuthenticated();
+$authenticator->getUser();
+$authenticator->logout();
+
+if ($password->needsRehash($user->getPassword())) { /* update stored hash */ }
+```
+
+## User contracts
+
+```php
+use Scafera\Auth\User;
+use Scafera\Auth\UserProvider;
+
+final class AppUser implements User
+{
+    public function getIdentifier(): string { /* ... */ }
+    public function getRoles(): array { /* ... */ }
+    public function getPassword(): string { /* ... */ }
+}
+
+final class AppUserProvider implements UserProvider
+{
+    public function findByIdentifier(string $identifier): ?User { /* ... */ }
+}
+```
+
+When exactly one `UserProvider` exists, it is auto-aliased.
+
+## Route protection
+
+```php
+use Scafera\Auth\Protect;
+use Scafera\Auth\SessionGuard;
+use Scafera\Auth\RoleGuard;
+
+#[Protect(guard: SessionGuard::class)]
+final class EditProfile { /* ... */ }
+
+#[Protect(guard: RoleGuard::class, options: ['role' => 'ADMIN'])]
+final class AdminDashboard { /* ... */ }
+```
+
+Guards run in declaration order. Return `null` to allow, `ResponseInterface` to deny.
+
+## Global guards
+
+```yaml
+scafera_auth:
+    global: [App\Guard\MaintenanceGuard]
+    exclude: ['/health', '/login']
+```
+
+## Boundary
+
+| Blocked | Use instead |
+|---------|-------------|
+| `Symfony\…\Session\*` | `Scafera\Auth\Session` |
+| `Symfony\…\Cookie` | `Scafera\Auth\CookieJar` |
+| `Symfony\…\Security\*` | `Scafera\Auth\Authenticator`, `GuardInterface` |
+| `Symfony\…\PasswordHasher\*` | `Scafera\Auth\Password` |
+
+---
+
+# scafera/form
+
+Form handling. DTO classes with `Rule\*` attributes. Symfony Form types allowed only in `src/Form/` controlled zone.
+
+## DTO
+
+```php
+use Scafera\Form\Rule;
+
+final class CreatePostInput
+{
+    #[Rule\NotBlank]
+    #[Rule\MaxLength(200)]
+    public string $title = '';
+
+    #[Rule\MaxLength(5000)]
+    public ?string $body = null;
+
+    #[Rule\Positive]
+    public int $priority = 1;
+}
+```
+
+Property types: `string`, `int`, `float`, `bool`, `DateTimeImmutable`, nullable variants, `BackedEnum`.
+
+## Rules
+
+`#[NotBlank]`, `#[MaxLength(int)]`, `#[MinLength(int)]`, `#[Min(int|float)]`, `#[Max(int|float)]`, `#[Positive]`, `#[OneOf(array)]`, `#[Email]`, `#[FileExtension(array)]`.
+
+## Standalone validation
+
+```php
+use Scafera\Form\Validator;
+
+$result = $validator->validate($input);
+$result->hasErrors();
+$result->firstError();     // ValidationError{field, message}
+$result->toArray();        // ['title' => ['...']]
+```
+
+## FormHandler (web path)
+
+```php
+use Scafera\Form\FormHandler;
+
+$form = $this->form->handle($request, CreatePostInput::class);
+
+if ($form->isValid()) {
+    $input = $form->getData();
+    return new RedirectResponse('/posts');
+}
+
+return new Response($this->view->render('posts/new.html.twig', ['form' => $form]));
+```
+
+## Template
+
+```twig
+<form method="POST">
+    <input type="hidden" name="_csrf" value="{{ form.csrfToken() }}">
+    <input name="title" value="{{ form.old('title') }}">
+    {% if form.error('title') %}<span>{{ form.error('title') }}</span>{% endif %}
+    <button type="submit">Create</button>
+</form>
+```
+
+## Form API
+
+`isSubmitted()`, `isValid()`, `getData()`, `errors()`, `error(field)`, `old(field)`, `csrfToken()`.
+
+## Controlled zone: src/Form/
+
+Symfony `AbstractType` classes allowed here only. Same pattern as `src/Repository/` for Doctrine.
+
+Rules: may reference `App\Entity`, must NOT import from `App\Service`/`App\Repository`/`App\Controller`/`App\Command`/`App\Integration`. Only controllers import from `App\Form`. Wire via Symfony's `FormFactory` directly.
+
+## Boundary
+
+| Blocked | Use instead |
+|---------|-------------|
+| `Symfony\…\Form\*` | `FormHandler` (outside `src/Form/`) |
+| `Symfony\…\Validator\*` | `Validator` + `Rule\*` |
+
+CSRF scoped per DTO class — a token from one form cannot submit another.
+
+File uploads are not handled — use `scafera/file` alongside.
+
+---
+
+# scafera/file
+
+File handling. MIME detection via magic bytes (not client headers). Path traversal structurally prevented. Filename collisions auto-resolved.
+
+## Upload + validate
+
+```php
+use Scafera\File\{UploadExtractor, UploadValidator, UploadConstraint};
+
+$file = $uploads->get($request, 'avatar');
+
+if ($file !== null) {
+    $result = $validator->validate($file, new UploadConstraint(
+        allowedExtensions: ['jpg', 'png'],
+        allowedMimeTypes: ['image/jpeg', 'image/png'],
+        maxSizeBytes: 2_097_152,
+    ));
+
+    if (!$result->isValid()) {
+        // $result->error()
+    }
+}
+```
+
+## Store
+
+```php
+use Scafera\File\FileStorage;
+
+$path = $storage->store($file, 'avatars');               // 'avatars/photo.jpg'
+$path = $storage->store($file, 'avatars', 'me.jpg');     // 'avatars/me.jpg'
+$storage->exists($path);
+$storage->delete($path);
+```
+
+Storage directory defined by the architecture package. For layered: `var/uploads/`.
+
+## Serve
+
+```php
+use Scafera\File\FileResponse;
+
+return FileResponse::download($path, 'report.pdf');
+return FileResponse::inline($path);
+```
+
+`FileResponse` is converted to a binary response by a dedicated listener at priority 10.
+
+## Forms + files
+
+Explicit composition:
+
+```php
+$form = $this->formHandler->handle($request, ProfileInput::class);
+$avatar = $this->uploads->get($request, 'avatar');
+```
+
+## Boundary
+
+| Blocked | Use instead |
+|---------|-------------|
+| `Symfony\…\File\UploadedFile` | `Scafera\File\UploadedFile` |
+| `Symfony\…\File\File` | `Scafera\File\FileStorage` |
+| `Symfony\…\Filesystem\*` | `Scafera\File\FileStorage` |
+
+---
+
+# scafera/translate
+
+UI translation. Flat JSON files with `{name}` parameter syntax (not `%name%`). RTL support. Twig integration via companion bundle.
+
+## Files
+
+`support/translations/{locale}.json`:
+
+```json
+{
+    "WELCOME": "Welcome to the app!",
+    "GREETING": "Hello, {name}!"
+}
+```
+
+## Usage
+
+```php
+use Scafera\Translate\Translator;
+
+$translator->get('WELCOME');
+$translator->get('GREETING', ['name' => 'Alice']);
+$translator->has('WELCOME');
+$translator->getLocale();
+$translator->getDirection();               // 'ltr' or 'rtl'
+```
+
+Missing keys return the raw key string. Fallback to default locale is automatic.
+
+## Locale
+
+```php
+use Scafera\Translate\LocaleManager;
+
+$localeManager->setLocale('ar');
+$localeManager->getLocale();
+$localeManager->getDirection();
+$localeManager->getAvailableLocales();     // ['ar', 'en']
+```
+
+Available locales discovered from `*.json` files.
+
+## Twig
+
+When `scafera/frontend` installed, companion bundle registers:
+
+```twig
+<html dir="{{ locale_direction() }}">
+    <h1>{{ t('WELCOME') }}</h1>
+    <p>{{ t('GREETING', {name: user.name}) }}</p>
+</html>
+```
+
+## Config
+
+```yaml
+parameters:
+    scafera.translate.default_locale: en
+    scafera.translate.rtl_locales: [ar, fa, ur]
+```
+
+## Boundary
+
+`Symfony\Component\Translation\*` blocked. Use `Scafera\Translate\Translator`.
+
+---
+
+# scafera/asset
+
+Asset management. Configures AssetMapper internally. Reference via `asset()` in Twig. Requires `scafera/frontend`.
+
+## Templates
+
+```twig
+<link rel="stylesheet" href="{{ asset('styles/app.css') }}">
+<script src="{{ asset('js/app.js') }}"></script>
+<img src="{{ asset('images/logo.png') }}">
+```
+
+Place CSS/JS/images in `assets/` at project root.
+
+## Tailwind
+
+```bash
+composer require symfonycasts/tailwind-bundle
+vendor/bin/scafera symfony tailwind:init
+vendor/bin/scafera symfony tailwind:build
+vendor/bin/scafera symfony tailwind:build --watch
+```
+
+## Production
+
+```bash
+vendor/bin/scafera symfony asset-map:compile
+```
+
+Versioned files written to `public/assets/`.
+
+## Companion bundles
+
+Declared via `extra.scafera-bundles`. Currently: `symfonycasts/tailwind-bundle` → `SymfonycastsTailwindBundle`.
+
+## Config
+
+```yaml
+framework:
+    asset_mapper:
+        paths: ['assets/', 'vendor/some-package/assets/']
+```
+
+## Boundary
+
+`Symfony\Component\AssetMapper\*` blocked. Use `asset()` in templates.
+
+---
+
+# scafera/integration
+
+External system communication via **Gateway pattern**. One class per external system with business-level methods.
+
+## Config
+
+```yaml
+# config.yaml
+integration:
+    stripe:
+        base_url: 'https://api.stripe.com/v1'
+        auth: ''
+
+# config.local.yaml (gitignored)
+integration:
+    stripe:
+        auth: 'Bearer sk_live_real_secret'
+```
+
+## Gateway
+
+```php
+namespace App\Integration\Stripe;
+
+use Scafera\Integration\HttpClient;
+use Scafera\Integration\Attribute\Integration;
+
+final class PaymentGateway
+{
+    public function __construct(
+        #[Integration('stripe')]
+        private HttpClient $http,
+    ) {}
+
+    public function createPayment(int $amount, string $currency): array
+    {
+        return $this->http->post('/charges', [
+            'amount' => $amount,
+            'currency' => $currency,
+        ])->json();
+    }
+}
+```
+
+Rules: class name ends with `Gateway`, one class per external system, business-level methods only, no HTTP types in public signatures, no full URLs.
+
+## Integration-specific config
+
+```yaml
+integration:
+    linkedin:
+        base_url: 'https://api.linkedin.com/v2'
+        auth: ''
+        contract_id: ''
+        seat_limit: 500
+```
+
+```php
+public function __construct(
+    #[Integration('linkedin')] private HttpClient $http,
+    #[Integration('linkedin', 'contract_id')] private string $contractId,
+    #[Integration('linkedin', 'seat_limit')] private int $seatLimit,
+) {}
+```
+
+`#[Integration('name')]` resolves to `HttpClient`. `#[Integration('name', 'key')]` resolves to the config value.
+
+## HttpClient API
+
+```php
+$http->get(path, options): Response;
+$http->post(path, data, options): Response;
+$http->put(path, data, options): Response;
+$http->patch(path, data, options): Response;
+$http->delete(path, options): Response;
+```
+
+`$data` sent as JSON. For other content types, use `$options` directly.
+
+## Response API
+
+```php
+$response->statusCode(): int;
+$response->json(): array;
+$response->body(): string;
+$response->headers(): array;
+$response->header(string $name): ?string;
+```
+
+HTTP errors do not throw automatically — gateway handles errors.
+
+## Testing gateways
+
+```php
+use Symfony\Component\HttpClient\MockHttpClient;
+use Symfony\Component\HttpClient\Response\MockResponse;
+
+$mock = new MockHttpClient([new MockResponse('{"id": 1}')]);
+$http = new HttpClient('https://api.example.com', null, $mock);
+
+$gateway = new PaymentGateway($http);
+```
+
+Test services that use gateways by mocking the gateway, not the HTTP client.
+
+## Boundary
+
+Blocked everywhere in `src/`: `Symfony\Contracts\HttpClient\*`, `Symfony\Component\HttpClient\*`, `curl_*`, `file_get_contents` with HTTP URLs, `fopen` with HTTP URLs.
+
+`Scafera\Integration\HttpClient` allowed only inside `Integration/`. `#[Integration('name', 'key')]` allowed only inside `Integration/`. Unused config keys flagged.
+
+---
+
+# scafera/log
+
+Structured logging. PSR-3 `StreamLogger` writes JSON Lines to `var/log/{environment}.log`.
+
+## Usage
+
+```php
+use Psr\Log\LoggerInterface;
+
+final class OrderService
+{
+    public function __construct(private readonly LoggerInterface $logger) {}
+
+    public function place(Order $order): void
+    {
+        $this->logger->info('Order placed', [
+            'event' => 'order.created',
+            'orderId' => $order->getId(),
+        ]);
+    }
+}
+```
+
+## Event field
+
+Required on every call. Lowercase dot notation: `order.created`, `auth.login`, `payment.failed`, `db.slow_query`.
+
+`framework.*` is reserved for framework internals.
+
+## Log format
+
+```json
+{"timestamp":"2026-04-10T16:22:40.501+00:00","level":"info","message":"Order placed","event":"order.created","ip":"192.168.1.42","context":{"orderId":1}}
+```
+
+Fields: `timestamp` (RFC3339 + ms), `level`, `message`, `event` (promoted from context), `ip` (HTTP only), `context` (remaining, omitted if empty).
+
+`\Throwable` under `exception` key is expanded to structured data (class, message, code, file, line).
+
+## Failure behavior
+
+Logging failures throw `\RuntimeException`. No silent degradation. OS error message folded into exception text.
+
+Storage implications:
+- Use reliable local storage (local disk, tmpfs, local-backed volume)
+- NFS not recommended — network failure modes surface as `RuntimeException`
+- Rotation via `logrotate` — `StreamLogger` opens file fresh on each write
+
+## Framework error logging
+
+Auto-captured when `scafera/log` installed:
+
+- HTTP 4xx → `warning` level, event `framework.http.error`
+- HTTP 5xx / unhandled → `error` level, event `framework.http.error`
+- Console failures → `error` level, event `framework.console.error`
+
+Symfony's built-in error logging disabled via compiler pass (prevents duplicates).
+
+## Build-time validation
+
+`EventContextValidator`:
+
+- Every logger call in `src/` must include `'event' =>` key
+- Event values must match `^[a-z][a-z0-9]*(\.[a-z][a-z0-9]*)+$`
+
+Tokenizer-based. Single-line and multi-line calls supported. Only top level of context checked. Dynamic values (constants, variables) accepted as present but not format-checked.
+
+## CLI
+
+```
+logs:recent [--limit=N --level=error --scope=app|framework]
+logs:status                                 # 24h summary + top events + recent failures
+logs:errors                                 # severity >= error
+logs:stats [--by-level]
+logs:filter <event> [--level=X --search="text" --scope=app|framework]
+logs:clear [-y]
+```
+
+All commands support `--json` for machine-readable output.
+
+## Rules
+
+- Inject `Psr\Log\LoggerInterface`, never `StreamLogger`
+- Log in services, not controllers
+- Every log call is explicit — no listeners, no middleware
+- Do not catch or suppress logging exceptions
+
+---
+
+# scafera/scaffold
+
+Composer plugin. Copies framework-owned files into projects on `composer install` / `update`. Files in `files` are always overwritten. Files in `initial-files` are created once.
+
+Not a code generator — for that, use `vendor/bin/scafera make:*`.
+
+## Package declarations
+
+`extra.scafera-scaffold` in `composer.json`:
+
+```json
+{
+    "extra": {
+        "scafera-scaffold": {
+            "files": {
+                "index.php": "support/scaffold/public/index.php"
+            },
+            "initial-files": {
+                "config/config.yaml": "support/scaffold/config/config.example.yaml"
+            }
+        }
+    }
+}
+```
+
+## Target map (architecture packages)
+
+Remap logical keys without duplicating source files:
+
+```json
+{
+    "extra": {
+        "scafera-scaffold": {
+            "target-map": {
+                "index.php": "public/index.php"
+            }
+        }
+    }
+}
+```
+
+## Project overrides
+
+Disable specific scaffolded files:
+
+```json
+{
+    "extra": {
+        "scafera-scaffold": {
+            "file-mapping": {
+                "public/index.php": false
+            }
+        }
+    }
+}
+```
+
+## Convention
+
+Package source files live under `support/scaffold/` at the package root.
+
+## Conflict resolution
+
+If multiple packages declare the same logical key, the last package processed wins (order determined by Composer's dependency resolution).

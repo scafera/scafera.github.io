@@ -1,0 +1,24 @@
+title: Scafera
+description: A predictable, enforceable PHP framework for building web apps with AI agents.
+url: https://scafera.github.io
+baseurl: ""
+
+theme: minima
+plugins:
+  - jekyll-seo-tag
+
+header_pages:
+  - getting-started.md
+  - conventions.md
+  - kernel.md
+  - layered.md
+
+minima:
+  skin: auto
+  social_links:
+    - { platform: github, user_url: "https://github.com/scafera" }
+
+exclude:
+  - README.md
+  - llms.txt
+  - llms-full.txt

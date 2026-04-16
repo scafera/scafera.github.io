@@ -1,0 +1,36 @@
+# Scafera
+
+> A predictable, enforceable PHP framework designed so humans and AI agents can build apps in it without breaking its rules. Rules are enforced by the system (validators, compiler passes, `scafera validate`), not suggested by documentation.
+
+Scafera wraps Symfony. The kernel, entry points, and bundle discovery are owned by the framework. User code contains only business logic. Every architectural boundary (Doctrine, Twig, Symfony Security, etc.) is enforced at compile time — violations fail the build.
+
+## Start here
+
+- [Getting started](https://scafera.github.io/getting-started/): Bootstrap a project from `scafera/layered-web`, first controller and test, run `scafera validate`.
+- [Conventions](https://scafera.github.io/conventions/): Hard rules every Scafera project follows — what never to create, boundary enforcement, allowed imports, agent discipline.
+
+## Core
+
+- [Kernel](https://scafera.github.io/kernel/): Boot core. HTTP types (`Request`, `Response`, `JsonResponse`, `#[Route]`), Console (`Command`, `#[AsCommand]`), Testing (`WebTestCase`, `CommandTestCase`), DI (`#[Config]`), contracts.
+- [Layered architecture](https://scafera.github.io/layered/): `scafera/layered` — project structure under `src/` (Controller, Service, Repository, Integration, Entity, Command), dependency flow, 12 validators, generators.
+
+## Capabilities
+
+- [Database](https://scafera.github.io/database/): `scafera/database` — `EntityStore`, `Transaction`, `Mapping\Field\*` attributes, Schema API for migrations, `db:*` CLI. Doctrine internal — allowed only in `src/Repository/`.
+- [Frontend](https://scafera.github.io/frontend/): `scafera/frontend` — `ViewInterface::render()` returns a string. Templates in `resources/templates/`. Twig internal — no `Twig\*` imports in userland.
+- [Auth](https://scafera.github.io/auth/): `scafera/auth` — `Session`, `Authenticator`, `Password`, `#[Protect]`, `SessionGuard`/`RoleGuard`. User-existence-based authentication. Symfony Security internal.
+- [Forms](https://scafera.github.io/form/): `scafera/form` — DTO classes with `Rule\*` attributes, `FormHandler`, per-form CSRF scoping, standalone `Validator`. Symfony Form allowed in `src/Form/` controlled zone only.
+- [Files](https://scafera.github.io/file/): `scafera/file` — `UploadExtractor`, server-side MIME detection, `FileStorage`, `FileResponse`. Path traversal prevented structurally.
+- [Translate](https://scafera.github.io/translate/): `scafera/translate` — `Translator`, `LocaleManager`, RTL support, flat JSON files with `{name}` parameter syntax, Twig `{{ t() }}` function.
+- [Assets](https://scafera.github.io/asset/): `scafera/asset` — `asset()` in Twig. AssetMapper internal. Companion bundle system for TailwindBundle.
+- [Integration](https://scafera.github.io/integration/): `scafera/integration` — Gateway pattern for third-party APIs. `HttpClient`, `#[Integration('name')]` attribute, config values in `config.yaml`. All HTTP escape hatches blocked (cURL, Symfony HttpClient, `file_get_contents` with URLs).
+- [Logging](https://scafera.github.io/log/): `scafera/log` — PSR-3 `StreamLogger`, JSON Lines, required `event` field (validated at build time), `logs:*` CLI, fail-loud I/O.
+
+## Tooling
+
+- [Scaffold](https://scafera.github.io/scaffold/): `scafera/scaffold` — Composer plugin. Copies framework-owned files into projects on install/update. Packages declare files via `extra.scafera-scaffold`.
+
+## Reference
+
+- [llms-full.txt](https://scafera.github.io/llms-full.txt): Single-file concatenation of all docs above — optimized for AI agents that want the full reference in one fetch.
+- [GitHub org](https://github.com/scafera): Each package is an independent repository under the `scafera/` organization.
