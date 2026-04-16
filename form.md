@@ -2,6 +2,7 @@
 layout: page
 title: Forms
 permalink: /form/
+render_with_liquid: false
 ---
 
 # scafera/form

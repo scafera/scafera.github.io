@@ -2,6 +2,7 @@
 layout: page
 title: Frontend
 permalink: /frontend/
+render_with_liquid: false
 ---
 
 # scafera/frontend
