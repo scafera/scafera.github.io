@@ -6,11 +6,11 @@ permalink: /scaffold/
 
 # scafera/scaffold
 
+> **This page is for Scafera package authors.** End users never invoke this package directly — it runs automatically on `composer install`. To generate controllers, services, or commands in your project, use `vendor/bin/scafera make:controller`, `make:service`, `make:command` (provided by architecture packages like [`scafera/layered`](/layered/)).
+
 Composer plugin that scaffolds framework-owned files into Scafera projects.
 
-> **This is not a code generator.** It does not create controllers, services, or commands — for that, use `vendor/bin/scafera make:controller`, `make:service`, `make:command` (provided by architecture packages like `scafera/layered`).
->
-> This plugin is a Composer hook that copies framework-owned files (entry point, kernel bootstrap, `.gitignore`, config examples) into your project on `composer install` so the framework and your project stay in sync.
+This plugin is a Composer hook that copies framework-owned files (entry point, kernel bootstrap, `.gitignore`, config examples) into your project on `composer install` so the framework and your project stay in sync.
 
 Runs automatically on `composer install` and `composer update`. Scaffolded files are always overwritten to prevent drift between framework and project.
 

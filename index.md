@@ -50,12 +50,6 @@ Why this matters for AI-assisted development: frameworks with "conventions" depe
 | [`scafera/integration`](/integration/) | External APIs — Gateway pattern, `HttpClient` |
 | [`scafera/log`](/log/) | Logging — PSR-3 JSON Lines, CLI filters |
 
-### Tooling
-
-| Package | Purpose |
-|---------|---------|
-| [`scafera/scaffold`](/scaffold/) | Composer plugin — scaffolds framework-owned files |
-
 ### Project templates
 
 | Package | Purpose |
@@ -74,6 +68,12 @@ If you are an AI agent working in a Scafera project:
   - [`llms.txt`](/llms.txt) — index of all documentation pages with descriptions
   - [`llms-full.txt`](/llms-full.txt) — full concatenated documentation in one file
 - Before declaring work done, run `vendor/bin/scafera validate` — violations are build failures, not suggestions
+
+---
+
+## For package authors
+
+Building a Scafera package? See [`scafera/scaffold`](/scaffold/) — the Composer plugin that copies framework-owned files into projects on install.
 
 ---
 
