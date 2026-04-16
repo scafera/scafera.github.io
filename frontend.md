@@ -2,7 +2,6 @@
 layout: page
 title: Frontend
 permalink: /frontend/
-render_with_liquid: false
 ---
 
 # scafera/frontend
@@ -74,10 +73,11 @@ final class Show
 ## Templates
 
 - Live in `resources/templates/` at the project root
-- Use Twig's native `{% extends %}`, `{% block %}`, `{% include %}` — no custom helpers
+- Use Twig's native {% raw %}`{% extends %}`, `{% block %}`, `{% include %}`{% endraw %} — no custom helpers
 
 ### Layout
 
+{% raw %}
 ```twig
 {# resources/templates/base.html.twig #}
 <!doctype html>
@@ -104,6 +104,7 @@ final class Show
     <p>{{ order.customerName }}</p>
 {% endblock %}
 ```
+{% endraw %}
 
 ---
 
@@ -141,4 +142,4 @@ See the respective package pages for details.
 - **Asset management** — `scafera/asset`
 - **Twig extensions for userland** — not supported (ADR-030)
 - **View composers / shared template data** — inject services explicitly
-- **Layout helpers** — use Twig's native `{% extends %}` and `{% block %}`
+- **Layout helpers** — use Twig's native {% raw %}`{% extends %}` and `{% block %}`{% endraw %}

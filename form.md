@@ -2,7 +2,6 @@
 layout: page
 title: Forms
 permalink: /form/
-render_with_liquid: false
 ---
 
 # scafera/form
@@ -125,6 +124,7 @@ final class CreatePost
 
 Plain HTML. No form themes, no `form_widget()`:
 
+{% raw %}
 ```twig
 <form method="POST">
     <input type="hidden" name="_csrf" value="{{ form.csrfToken() }}">
@@ -138,6 +138,7 @@ Plain HTML. No form themes, no `form_widget()`:
     <button type="submit">Create</button>
 </form>
 ```
+{% endraw %}
 
 ---
 
