@@ -25,7 +25,7 @@ composer require scafera/translate
 - **`{name}` parameter syntax, not `%name%`** — translation files use `{name}` for placeholders. Engine-independent, human-readable.
 - **Translations directory is architecture-owned** — defined by `getTranslationsDir()` on the architecture package. For `scafera/layered`: `support/translations/`.
 - **JSON only** — no YAML, no XLIFF. Flat key-value format.
-- **Companion bundle for Twig** — `{{ t() }}` registered via `extra.scafera-bundles` when `scafera/frontend` is installed. The translate package works without Twig.
+- **Companion bundle for Twig** — {% raw %}`{{ t() }}`{% endraw %} registered via `extra.scafera-bundles` when `scafera/frontend` is installed. The translate package works without Twig.
 - **Missing keys return the raw key** — `get('MISSING')` returns `'MISSING'`. Fallback to default locale is automatic for keys that exist in another locale.
 
 ---
@@ -77,12 +77,14 @@ Available locales are discovered from `*.json` files in the translations directo
 
 When `scafera/frontend` is installed, a companion bundle registers automatically:
 
+{% raw %}
 ```twig
 <html dir="{{ locale_direction() }}">
     <h1>{{ t('WELCOME') }}</h1>
     <p>{{ t('GREETING', {name: user.name}) }}</p>
 </html>
 ```
+{% endraw %}
 
 ---
 

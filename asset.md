@@ -26,11 +26,13 @@ Requires `scafera/frontend` (for Twig `asset()` function).
 
 Place CSS, JS, and other static files in `assets/` at the project root. Reference them in Twig:
 
+{% raw %}
 ```twig
 <link rel="stylesheet" href="{{ asset('styles/app.css') }}">
 <script src="{{ asset('js/app.js') }}"></script>
 <img src="{{ asset('images/logo.png') }}">
 ```
+{% endraw %}
 
 ---
 
@@ -57,9 +59,11 @@ vendor/bin/scafera symfony tailwind:build --watch
 
 Reference the compiled CSS:
 
+{% raw %}
 ```twig
 <link rel="stylesheet" href="{{ asset('styles/app.css') }}">
 ```
+{% endraw %}
 
 ---
 
