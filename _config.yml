@@ -20,5 +20,3 @@ minima:
 
 exclude:
   - README.md
-  - llms.txt
-  - llms-full.txt

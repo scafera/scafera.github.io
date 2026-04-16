@@ -168,7 +168,7 @@ Real secrets go in `config/config.local.yaml` (gitignored). OS environment varia
 
 **Do not** create `.env` files, `config/packages/`, or `config/bundles.php` — Scafera does not scan them.
 
-See **[conventions](conventions.html)** for the full rule set.
+See **[conventions](/conventions/)** for the full rule set.
 
 ---
 
@@ -188,7 +188,7 @@ Generators reject convention-violating names like `Controller` or `Command` suff
 
 ## Next steps
 
-- **[Conventions](conventions.html)** — the hard rules every Scafera project follows
-- **[Layered architecture](layered.html)** — project structure and layer boundaries
-- **[Database](database.html)** — entities, migrations, transactions
-- **[Frontend](frontend.html)** — Twig via `ViewInterface`
+- **[Conventions](/conventions/)** — the hard rules every Scafera project follows
+- **[Layered architecture](/layered/)** — project structure and layer boundaries
+- **[Database](/database/)** — entities, migrations, transactions
+- **[Frontend](/frontend/)** — Twig via `ViewInterface`

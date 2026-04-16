@@ -27,7 +27,7 @@ Six layers under `src/`:
 
 Plus two optional directories:
 
-- `Form/` — Symfony Form types for complex forms (controlled zone, see [form](form.html))
+- `Form/` — Symfony Form types for complex forms (controlled zone, see [form](/form/))
 - `Integration/` — only created when third-party integrations exist
 
 ---
@@ -237,7 +237,7 @@ final class OrderRepository
 - Must not expose SDK types to callers — return domain objects or primitives
 - Used by services — never injected into controllers or commands directly
 
-See **[scafera/integration](integration.html)** for the Gateway pattern with HTTP-based third parties.
+See **[scafera/integration](/integration/)** for the Gateway pattern with HTTP-based third parties.
 
 ---
 
@@ -249,7 +249,7 @@ See **[scafera/integration](integration.html)** for the Gateway pattern with HTT
 - Use the `Auditable` trait for `createdAt`/`updatedAt` timestamps
 - No `Doctrine\*` imports — enforced by `DoctrineBoundaryPass`
 
-See **[scafera/database](database.html)** for field types and mapping details.
+See **[scafera/database](/database/)** for field types and mapping details.
 
 ---
 

@@ -15,10 +15,10 @@ Why this matters for AI-assisted development: frameworks with "conventions" depe
 
 ## Start here
 
-- **[Getting started](getting-started.html)** — bootstrap a project from `scafera/layered-web`
-- **[Conventions](conventions.html)** — the hard rules every project follows
-- **[Layered architecture](layered.html)** — project structure, layers, validators
-- **[Kernel](kernel.html)** — HTTP, Console, Testing, contracts
+- **[Getting started](/getting-started/)** — bootstrap a project from `scafera/layered-web`
+- **[Conventions](/conventions/)** — the hard rules every project follows
+- **[Layered architecture](/layered/)** — project structure, layers, validators
+- **[Kernel](/kernel/)** — HTTP, Console, Testing, contracts
 
 ---
 
@@ -28,33 +28,33 @@ Why this matters for AI-assisted development: frameworks with "conventions" depe
 
 | Package | Purpose |
 |---------|---------|
-| [`scafera/kernel`](kernel.html) | Core runtime — HTTP, Console, Testing, contracts |
+| [`scafera/kernel`](/kernel/) | Core runtime — HTTP, Console, Testing, contracts |
 
 ### Architecture
 
 | Package | Purpose |
 |---------|---------|
-| [`scafera/layered`](layered.html) | Layered architecture — Controller / Service / Repository / Integration / Entity / Command |
+| [`scafera/layered`](/layered/) | Layered architecture — Controller / Service / Repository / Integration / Entity / Command |
 
 ### Capabilities
 
 | Package | Purpose |
 |---------|---------|
-| [`scafera/database`](database.html) | Persistence — EntityStore, Transaction, Migrations (Doctrine internal) |
-| [`scafera/frontend`](frontend.html) | View rendering — `ViewInterface` (Twig internal) |
-| [`scafera/auth`](auth.html) | Authentication — Session, Authenticator, Guards |
-| [`scafera/form`](form.html) | Forms — DTO validation, FormHandler, CSRF |
-| [`scafera/file`](file.html) | Files — Upload, Validate, Store, Serve |
-| [`scafera/translate`](translate.html) | i18n — JSON files, locale, RTL, Twig functions |
-| [`scafera/asset`](asset.html) | Assets — AssetMapper + `asset()` in Twig |
-| [`scafera/integration`](integration.html) | External APIs — Gateway pattern, `HttpClient` |
-| [`scafera/log`](log.html) | Logging — PSR-3 JSON Lines, CLI filters |
+| [`scafera/database`](/database/) | Persistence — EntityStore, Transaction, Migrations (Doctrine internal) |
+| [`scafera/frontend`](/frontend/) | View rendering — `ViewInterface` (Twig internal) |
+| [`scafera/auth`](/auth/) | Authentication — Session, Authenticator, Guards |
+| [`scafera/form`](/form/) | Forms — DTO validation, FormHandler, CSRF |
+| [`scafera/file`](/file/) | Files — Upload, Validate, Store, Serve |
+| [`scafera/translate`](/translate/) | i18n — JSON files, locale, RTL, Twig functions |
+| [`scafera/asset`](/asset/) | Assets — AssetMapper + `asset()` in Twig |
+| [`scafera/integration`](/integration/) | External APIs — Gateway pattern, `HttpClient` |
+| [`scafera/log`](/log/) | Logging — PSR-3 JSON Lines, CLI filters |
 
 ### Tooling
 
 | Package | Purpose |
 |---------|---------|
-| [`scafera/scaffold`](scaffold.html) | Composer plugin — scaffolds framework-owned files |
+| [`scafera/scaffold`](/scaffold/) | Composer plugin — scaffolds framework-owned files |
 
 ### Project templates
 
@@ -68,9 +68,9 @@ Why this matters for AI-assisted development: frameworks with "conventions" depe
 
 If you are an AI agent working in a Scafera project:
 
-- Start with **[conventions](conventions.html)** — the hard rules you must not break
+- Start with **[conventions](/conventions/)** — the hard rules you must not break
 - The project's `AGENTS.md` (or `CLAUDE.md`) contains project-specific excerpts of these rules
-- A single-file machine-readable reference is available at [`llms-full.txt`](llms-full.txt)
+- A single-file machine-readable reference is available at [`llms-full.txt`](/llms-full.txt)
 - Before declaring work done, run `vendor/bin/scafera validate` — violations are build failures, not suggestions
 
 ---
