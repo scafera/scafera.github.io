@@ -70,7 +70,9 @@ If you are an AI agent working in a Scafera project:
 
 - Start with **[conventions](/conventions/)** — the hard rules you must not break
 - The project's `AGENTS.md` (or `CLAUDE.md`) contains project-specific excerpts of these rules
-- A single-file machine-readable reference is available at [`llms-full.txt`](/llms-full.txt)
+- Machine-readable references for AI ingestion:
+  - [`llms.txt`](/llms.txt) — index of all documentation pages with descriptions
+  - [`llms-full.txt`](/llms-full.txt) — full concatenated documentation in one file
 - Before declaring work done, run `vendor/bin/scafera validate` — violations are build failures, not suggestions
 
 ---
